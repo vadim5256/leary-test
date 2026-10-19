@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import json
 
 # 128 суждений Лири
 QUESTIONS = [
@@ -63,6 +64,49 @@ if "sub_mode" not in st.session_state:
     st.session_state.sub_mode = "real"
 if "answers" not in st.session_state:
     st.session_state.answers = {}
+
+# --- БОКОВАЯ ПАНЕЛЬ ДЛЯ СОХРАНЕНИЯ / ВОССТАНОВЛЕНИЯ ПРОГРЕССА ---
+with st.sidebar:
+    st.header("⚙️ Управление тестом")
+    
+    if st.session_state.started:
+        st.markdown("---")
+        st.subheader("💾 Сохранить прогресс")
+        st.write("Если нужно прерваться, скачайте файл бекапа:")
+        
+        # Подготовка данных для сохранения
+        backup_data = {
+            "names": st.session_state.names,
+            "q_index": st.session_state.q_index,
+            "p_index": st.session_state.p_index,
+            "sub_mode": st.session_state.sub_mode,
+            "answers": st.session_state.answers
+        }
+        json_str = json.dumps(backup_data, ensure_ascii=False, indent=4)
+        
+        st.download_button(
+            label="📥 Скачать бекап теста",
+            data=json_str,
+            file_name="leary_backup.json",
+            mime="application/json"
+        )
+    
+    st.markdown("---")
+    st.subheader("📂 Восстановить прогресс")
+    uploaded_backup = st.file_uploader("Загрузить файл бекапа (.json)", type=["json"])
+    if uploaded_backup is not None:
+        try:
+            b_data = json.load(uploaded_backup)
+            st.session_state.names = b_data["names"]
+            st.session_state.q_index = b_data["q_index"]
+            st.session_state.p_index = b_data["p_index"]
+            st.session_state.sub_mode = b_data["sub_mode"]
+            st.session_state.answers = b_data["answers"]
+            st.session_state.started = True
+            st.success("Прогресс успешно восстановлен!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Ошибка чтения файла: {e}")
 
 st.title("🧠 ДМО Т. Лири (Реальный / Идеальный образ)")
 
