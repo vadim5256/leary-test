@@ -49,7 +49,13 @@ OCTANTS = {
     "VIII. Альтруистичный": [29, 30, 31, 32, 61, 62, 63, 64, 93, 94, 95, 96, 125, 126, 127, 128]
 }
 
-st.set_page_config(page_title="Тест Лири (ДМО) — Онлайн", page_icon="🧠", layout="centered")
+# Настраиваем конфигурацию страницы: открываем боковое меню сразу
+st.set_page_config(
+    page_title="Тест Лири (ДМО) — Онлайн", 
+    page_icon="🧠", 
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
 # Инициализация сессии
 if "started" not in st.session_state:
@@ -65,73 +71,85 @@ if "sub_mode" not in st.session_state:
 if "answers" not in st.session_state:
     st.session_state.answers = {}
 
-# --- БОКОВАЯ ПАНЕЛЬ ДЛЯ СОХРАНЕНИЯ / ВОССТАНОВЛЕНИЯ ПРОГРЕССА ---
-with st.sidebar:
-    st.header("⚙️ Управление тестом")
-    
-    if st.session_state.started:
-        st.markdown("---")
-        st.subheader("💾 Сохранить прогресс")
-        st.write("Если нужно прерваться, скачайте файл бекапа:")
-        
-        # Подготовка данных для сохранения
-        backup_data = {
-            "names": st.session_state.names,
-            "q_index": st.session_state.q_index,
-            "p_index": st.session_state.p_index,
-            "sub_mode": st.session_state.sub_mode,
-            "answers": st.session_state.answers
-        }
-        json_str = json.dumps(backup_data, ensure_ascii=False, indent=4)
-        
-        st.download_button(
-            label="📥 Скачать бекап теста",
-            data=json_str,
-            file_name="leary_backup.json",
-            mime="application/json"
-        )
-    
-    st.markdown("---")
-    st.subheader("📂 Восстановить прогресс")
-    uploaded_backup = st.file_uploader("Загрузить файл бекапа (.json)", type=["json"])
-    if uploaded_backup is not None:
-        try:
-            b_data = json.load(uploaded_backup)
-            st.session_state.names = b_data["names"]
-            st.session_state.q_index = b_data["q_index"]
-            st.session_state.p_index = b_data["p_index"]
-            st.session_state.sub_mode = b_data["sub_mode"]
-            st.session_state.answers = b_data["answers"]
-            st.session_state.started = True
-            st.success("Прогресс успешно восстановлен!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Ошибка чтения файла: {e}")
+# Вспомогательная функция для формирования файла бекапа
+def get_backup_json():
+    data = {
+        "names": st.session_state.names,
+        "q_index": st.session_state.q_index,
+        "p_index": st.session_state.p_index,
+        "sub_mode": st.session_state.sub_mode,
+        "answers": st.session_state.answers
+    }
+    return json.dumps(data, ensure_ascii=False, indent=4)
 
+# --- БОКОВАЯ ПАНЕЛЬ (SIDEBAR) ---
+with st.sidebar:
+    st.header("⚙️ Меню и бекап")
+    if st.session_state.started:
+        st.success("🟢 Тестирование идет")
+        st.write(f"Участников: {len(st.session_state.names)}")
+        st.markdown("---")
+        st.subheader("💾 Быстрое сохранение")
+        st.download_button(
+            label="💾 Скачать бекап (.json)",
+            data=get_backup_json(),
+            file_name="leary_backup.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    else:
+        st.info("⚪ Тест не начат")
+
+    st.markdown("---")
+    st.caption("Разработано для группового тестирования по методике ДМО Т. Лири.")
+
+# --- ОСНОВНОЙ ИНТЕРФЕЙС ---
 st.title("🧠 ДМО Т. Лири (Реальный / Идеальный образ)")
 
 if not st.session_state.started:
-    st.markdown("Введите список участников (каждое имя на новой строке):")
-    default_text = "Я (Самооценка)\nИван\nМария"
-    names_input = st.text_area("Список участников", value=default_text, height=150)
-    
-    if st.button("Начать тестирование ▶", type="primary"):
-        lines = [n.strip() for n in names_input.split("\n") if n.strip()]
-        if lines:
-            st.session_state.names = lines
-            st.session_state.answers = {
-                name: {
-                    "real": [False] * len(QUESTIONS),
-                    "ideal": [False] * len(QUESTIONS)
-                } for name in lines
-            }
-            st.session_state.q_index = 0
-            st.session_state.p_index = 0
-            st.session_state.sub_mode = "real"
-            st.session_state.started = True
-            st.rerun()
-        else:
-            st.warning("Введите хотя бы одно имя!")
+    # Используем удобные вкладки на главном экране
+    tab_new, tab_restore = st.tabs(["🆕 Начать новый тест", "📂 Загрузить сохранение (.json)"])
+
+    with tab_new:
+        st.markdown("Введите список участников (каждое имя на новой строке):")
+        default_text = "Я (Самооценка)\nИван\nМария"
+        names_input = st.text_area("Список участников", value=default_text, height=150)
+        
+        if st.button("Начать тестирование ▶", type="primary", use_container_width=True):
+            lines = [n.strip() for n in names_input.split("\n") if n.strip()]
+            if lines:
+                st.session_state.names = lines
+                st.session_state.answers = {
+                    name: {
+                        "real": [False] * len(QUESTIONS),
+                        "ideal": [False] * len(QUESTIONS)
+                    } for name in lines
+                }
+                st.session_state.q_index = 0
+                st.session_state.p_index = 0
+                st.session_state.sub_mode = "real"
+                st.session_state.started = True
+                st.rerun()
+            else:
+                st.warning("Введите хотя бы одно имя!")
+
+    with tab_restore:
+        st.markdown("Если вы ранее сохраняли прогресс теста, загрузите файл **`leary_backup.json`**:")
+        uploaded_backup = st.file_uploader("Выберите файл бекапа", type=["json"], key="start_page_uploader")
+        if uploaded_backup is not None:
+            try:
+                b_data = json.load(uploaded_backup)
+                st.session_state.names = b_data["names"]
+                st.session_state.q_index = b_data["q_index"]
+                st.session_state.p_index = b_data["p_index"]
+                st.session_state.sub_mode = b_data["sub_mode"]
+                st.session_state.answers = b_data["answers"]
+                st.session_state.started = True
+                st.success("Прогресс успешно восстановлен!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Ошибка чтения файла: {e}")
+
 else:
     total_q = len(QUESTIONS)
     total_p = len(st.session_state.names)
@@ -178,10 +196,11 @@ else:
             data=csv_data,
             file_name="leary_real_ideal_results.csv",
             mime="text/csv",
-            type="primary"
+            type="primary",
+            use_container_width=True
         )
 
-        if st.button("Пройти заново"):
+        if st.button("Пройти заново", use_container_width=True):
             st.session_state.started = False
             st.rerun()
     else:
@@ -219,3 +238,15 @@ else:
         with col2:
             if st.button("✅ ДА (+)", use_container_width=True, type="primary"):
                 save_ans(True)
+
+        # Яркий блок прямо на главном экране для быстрого сохранения
+        st.markdown("---")
+        with st.expander("💾 Нужна пауза? Сохранить текущий прогресс"):
+            st.write("Нажмите кнопку ниже, чтобы скачать файл `leary_backup.json`. Позже вы сможете загрузить его на стартовом экране и продолжить с этого места.")
+            st.download_button(
+                label="💾 Скачать промежуточный прогресс (.json)",
+                data=get_backup_json(),
+                file_name="leary_backup.json",
+                mime="application/json",
+                use_container_width=True
+            )
